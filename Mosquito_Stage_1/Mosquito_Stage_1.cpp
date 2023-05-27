@@ -124,7 +124,7 @@ struct mosq_vars {
 mosq_vars env_1;
 
 
-void read_variables() //function for reading varible values from CSV file
+void read_variables() //function for reading varible values from CSV files
 {
 	string fname = "variables_temp_30.csv";
 	vector<string> vals;
