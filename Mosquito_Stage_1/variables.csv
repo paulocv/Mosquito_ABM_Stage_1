@@ -1,20 +1,21 @@
 ﻿initial_mosqitoes,200
 max_larve_cap,1000000
-mate_prob,0.04223
+mate_prob,0.12669
 treated_prob,0
-female_death_prob,0.045505667
-male_death_prob,0.045505667
-egg_death_prob,0.108123667
-larve_death_prob,0.025494
-pupe_death_prob,0.034455333
+female_death_prob,0.136517
+male_death_prob,0.136517
+egg_death_prob,0.324371
+larve_death_prob,0.076482
+pupe_death_prob,0.103366
 gender_prob_for offsprings,0.5
 find_male_prob,1
-egg_next_stg_prob,0.110072667
-larve_next_stage_prob,0.040730333
-pupe_next_stage_prob,0.118977667
+egg_next_stg_prob,0.330218
+larve_next_stage_prob,0.122191
+pupe_next_stage_prob,0.356933
 intrvl_of_days_to_add_treated_mosq ,7
-percent_DD,100
-num_of_days_to_expmnt,600
+percent_DD,80
+num_of_days_to_expmnt,465
 num_of_times_in_each_day,10
-equlibrium_days,200
-max_egg_cap,1000
+equlibrium_days,100
+max_egg_cap,10000
+linear_egg_cap,5000

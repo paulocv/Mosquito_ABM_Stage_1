@@ -36,7 +36,7 @@ using std::cout;
 
 int mosq_count = 0;
 int pause_for_interupt;
-
+int file_counter = 0;
 int global_zero_mosq=0;
 
 struct mosq {
@@ -106,7 +106,7 @@ struct mosq_vars {
 	int total_time = 2; //initial value to loop over time
 	unsigned int k = 1;	// randomness of initial mosquito death
 	unsigned int mate_oc, next_stg_oc;
-	unsigned int treated_oc, gender_oc, death_oc, find_male_oc;
+	unsigned int treated_oc, gender_oc, death_oc, find_male_oc, linear_egg_oc;
 	unsigned long int male_rndm_mosq, no_of_male, max_larve_cap = 15; //caring capacity larve cap 10000
 	float mate_prob = 0.9;
 	float treated_prob = 0.8, female_death_prob = 0.2, male_death_prob = 0.2, egg_death_prob = 0.2, larve_death_prob = 0.2, pupe_death_prob = 0.2, initial_mate_prob = 0.001;
@@ -115,7 +115,7 @@ struct mosq_vars {
 	int intrvl_of_days_to_add_treated_mosq,num_of_days_to_expmnt, num_of_times_in_each_day;
 	int num_of_mosq_to_add;
 	double step_size;
-	int equlibrium_days, max_egg_cap, percent_males_DD_add, adult_males_on_equibrilium = 0, DR_mate_cntr = 0, DD_mate_cntr = 0, RR_mate_cntr = 0;
+	int equlibrium_days, max_egg_cap, percent_males_DD_add, adult_males_on_equibrilium = 0, DR_mate_cntr = 0, DD_mate_cntr = 0, RR_mate_cntr = 0, linear_egg_cap=0,global_egg_count=0;
 	//input the data from file
 	//death prob for each status
 	//nxt stg fore each status
@@ -126,7 +126,7 @@ mosq_vars env_1;
 
 void read_variables() //function for reading varible values from CSV files
 {
-	string fname = "variables_temp_30.csv";
+	string fname = "variables.csv";
 	vector<string> vals;
 	vector<string> vals1;
 	string line, word;
@@ -173,6 +173,8 @@ void read_variables() //function for reading varible values from CSV files
 	env_1.num_of_times_in_each_day = stoi(vals.at(35));
 	env_1.equlibrium_days = stoi(vals.at(37));
 	env_1.max_egg_cap = stoi(vals.at(39));
+	env_1.linear_egg_cap = stoi(vals.at(41));
+
 
 
 
@@ -694,15 +696,17 @@ void mosq_nxt_stg() {
 
 		curr_mosq = curr_mosq->next;
 	}
-	cout << "\n the number of male mosquitos are: " << male_vector.size();
-	cout << "\n the number of female mosquitos are: " << female_vector.size();
-	cout << "\n the number of egg mosquitos are: " << egg_vector.size();
-	cout << "\n the number of lavre mosquitos are: " << larve_vector.size();
-	cout << "\n the number of pupe mosquitos are: " << pupe_vector.size();
+	//cout << "\n the number of male mosquitos are: " << male_vector.size();
+	//cout << "\n the number of female mosquitos are: " << female_vector.size();
+	//cout << "\n the number of egg mosquitos are: " << egg_vector.size();
+	//cout << "\n the number of lavre mosquitos are: " << larve_vector.size();
+	//cout << "\n the number of pupe mosquitos are: " << pupe_vector.size();
 }
 
 
 void female_mating() {
+	int linear_egg_flag = 0;
+	double linear_egg_prob = (double)((double)1.0 - ((double)env_1.global_egg_count /(double) env_1.linear_egg_cap)); //global egg count is initally zero as there are no eggs at start of loop
 	cout << "\n-------------- in female mating";
 	while (curr_mosq->next != NULL) {
 		if (curr_mosq->status == 3 && curr_mosq->is_female == 1 && curr_mosq->is_mated == false) { //if the mosquito is female and it is not mated
@@ -712,6 +716,19 @@ void female_mating() {
 				// if the mosquito mates sucessfully or not
 				env_1.mate_oc = gsl_ran_bernoulli(_RNG_P, env_1.mate_prob* env_1.step_size);
 				if (env_1.mate_oc == 1) {
+					//cout << "\n prob value is : " << linear_egg_prob;
+					if (env_1.linear_egg_cap > 0) { // this only works if linear egg cap is greater than zero
+						if (linear_egg_prob < 0) {
+							linear_egg_prob = 0;
+						}
+						env_1.linear_egg_oc = gsl_ran_bernoulli(_RNG_P,linear_egg_prob);
+						//cout << "\n\n\n\n\n\n\n outcome is :" << env_1.linear_egg_oc;
+						if (env_1.linear_egg_oc == 0) {
+							//cout << "\n\n\n\n\nn\n\n\n\\n\n\n\n\\n\n inside linear egg cap";
+							continue;/////////////////////////////////////work on this
+
+						}
+					}
 					env_1.no_of_male = male_vector.size();
 					env_1.male_rndm_mosq = gsl_rng_uniform_int(_RNG_P, env_1.no_of_male);
 					if (male_vector[env_1.male_rndm_mosq]->gene_stat == 2) {
@@ -721,15 +738,15 @@ void female_mating() {
 							add_mosq(0, 0, 1, 0, 1);
 						}
 						
-						cout << "\n mating with treated male mosqito\n";
-						cout << "\n female: " << curr_mosq->mosq_id << "\n mating with male: " << male_vector[env_1.male_rndm_mosq]->mosq_id << "\n";
+						//cout << "\n mating with treated male mosqito\n";
+						//cout << "\n female: " << curr_mosq->mosq_id << "\n mating with male: " << male_vector[env_1.male_rndm_mosq]->mosq_id << "\n";
 						//unsigned long int gsl_rng_uniform_int(const gsl_rng * r, unsigned long int n)
 					}
 
 					else if (male_vector[env_1.male_rndm_mosq]->gene_stat == 1) {
 						env_1.DR_mate_cntr++;
 						//if the mating male is of DR(male)
-						cout << "\n inside else if of new mating\n";
+						//cout << "\n inside else if of new mating\n";
 						for (int cntr = 0; cntr < 25; cntr++) {
 							add_mosq(0, 0, 1, 0, 1);
 						}
@@ -740,7 +757,7 @@ void female_mating() {
 					else if (male_vector[env_1.male_rndm_mosq]->gene_stat == 0) {
 						env_1.RR_mate_cntr++;
 						//wild male mosquito mating with wild male
-						cout << "\n inside else in new mating\n";
+						//cout << "\n inside else in new mating\n";
 						for (int cntr = 0; cntr < 50; cntr++) { ///changed 50 to 25 to check
 
 							add_mosq(0, 1, 0, 0, 0); //adding 50 female
@@ -755,8 +772,8 @@ void female_mating() {
 
 
 						}
-						cout << "\n mated with wild male mosqito8888888888888888888888888888888888888888888888888888888\n";
-						cout << "\n female: " << curr_mosq->mosq_id << "\n mating with male: " << male_vector[env_1.male_rndm_mosq]->mosq_id << "\n";
+						//cout << "\n mated with wild male mosqito8888888888888888888888888888888888888888888888888888888\n";
+						//cout << "\n female: " << curr_mosq->mosq_id << "\n mating with male: " << male_vector[env_1.male_rndm_mosq]->mosq_id << "\n";
 						//show_mosqs();
 					}
 					curr_mosq->is_mated = 1;
@@ -1158,250 +1175,79 @@ void add_treated_male(int mosq_count) {
 
 bool comparePtrToNode(mosq* a, mosq* b) { return (a->mosq_id < b->mosq_id); }
 
+
+
+/////////////
 int main() {
-	alloc_and_setup_gsl_random_generator();
-	seed_gsl_random_generator(0);
 
-	cout << "the intialized count :";
-	curr_mosq = head;
-	prev_mosq = head;
-	int day_cntr = 0;
-	//int Male_DD = 0, Male_DR = 0, Male_RR = 0;
-
-	double divs;
-	read_variables();
-	cout << "\n the initial mosqs count is :" << env_1.mate_prob;
-	cout << "\n" << env_1.initial_mosqs;
-	cout << "\n" << env_1.max_larve_cap;
-	cout << "\n" << env_1.mate_prob;
-	cout << "\n" << env_1.treated_prob;
-	cout << "\n" << env_1.female_death_prob;
-	cout << "\n" << env_1.male_death_prob;
-	cout << "\n" << env_1.egg_death_prob;
-	cout << "\n" << env_1.larve_death_prob;
-	cout << "\n" << env_1.pupe_death_prob;
-	cout << "\n" << env_1.gender_prob;
-	cout << "\n" << env_1.find_male_prob;
-	cout << "\n" << env_1.egg_next_stg_prob;
-	cout << "\n" << env_1.larve_next_stage_prob;
-	cout << "\n" << env_1.pupe_next_stage_prob;
-
-
-	for (int i = 0; i < env_1.initial_mosqs; i++) {
-		//k = gsl_ran_bernoulli(_RNG_P, 0.50);  // stoping this as we are bringing all the mosquitos to a new environment
-		if (env_1.k == 1) {
-			env_1.gender_oc = gsl_ran_bernoulli(_RNG_P, env_1.gender_prob);
-			env_1.mate_oc = gsl_ran_bernoulli(_RNG_P, env_1.initial_mate_prob);
-			env_1.treated_oc = gsl_ran_bernoulli(_RNG_P, env_1.treated_prob);
-			if (env_1.gender_oc == 1) {
-				add_mosq(3, 0, 0, env_1.mate_oc,0);
-			}
-			else {
-				add_mosq(3, 1, 0, env_1.mate_oc,0);
-			}
-		}
-	}
-
-	cout << "\n Male vector size" << male_vector.size();
-
-	//add_mosq(3, 0, 0, env_1.mate_oc,/* 1);
-	//add_mosq(3, 0, 0, env_1.mate_oc, 2);*/
-	//add_mosq(3, 0, 0, env_1.mate_oc, 0);
+	string file_names_list = "80_percent_sim_";
+	string temp_file_names;
 	
 
-
-	//to calculate seperate count for DD, DR,RR
-	cout << "\n Male vector size"<<male_vector.size();
-	Male_DD.clear();
-	Male_DR.clear();
-	Male_RR.clear();
-	for (int si = 0; si < male_vector.size(); si++) {
-		cout << "\n" << male_vector[si]->mosq_id << "  ----  " << male_vector[si]->gene_stat;
-		if (male_vector[si]->gene_stat == 2) {
-			//Male_DD++;
-			Male_DD.push_back(male_vector[si]->mosq_id);
-		}
-		else if (male_vector[si]->gene_stat == 1) {
-			Male_DR.push_back(male_vector[si]->mosq_id);
-		}
-		else if (male_vector[si]->gene_stat == 0) {
-			Male_RR.push_back(male_vector[si]->mosq_id);
-		}
-
-	}
-
-	Male_count_DD.push_back(Male_DD.size());
-	Male_count_DR.push_back(Male_DR.size());
-	Male_count_RR.push_back(Male_RR.size());
-
-	//Male_DD.clear();
-	//Male_DR.clear();
-	//Male_RR.clear();
-	//for (int si = 0; si < male_vector.size(); si++) {
-	//	cout <<"\n" << male_vector[si]->mosq_id <<"  ----  "<< male_vector[si]->gene_stat;
-	//	if (male_vector[si]->gene_stat == 1) {
-	//		//Male_DD++;
-	//		
-	//		Male_DD.push_back(male_vector[si]->mosq_id);
-	//	}
-	//	else if (male_vector[si]->gene_stat == 2) {
-	//		Male_DD.push_back(male_vector[si]->mosq_id);
-	//	}
-	//	else if (male_vector[si]->gene_stat == 0) {
-	//		Male_DD.push_back(male_vector[si]->mosq_id);
-	//	}
-
-	//}
-
-	int males_add_after_equi;
-
-	cout << "\n count is";
-	cout << Male_DD.size()<<"\n"<<Male_DR.size()<<"\n"<<Male_RR.size();
+	//for (int sim_cnt; sim_cnt < 50; sim_cnt++) {
 
 
-	/*show_mosqs();
-	prnt_all_vect();*/
 
-	/*cout << "\n male mosquitoes are:";
-	for (auto it = male_vector.begin(); it != male_vector.end(); it++) {
-		cout << (*it)->mosq_id << "\n";
-	}*/
-	cout << "\n===============" << mosq_count;
-	//loooping over time
-	for (int day = 0; day < env_1.num_of_days_to_expmnt; day++) {
+		alloc_and_setup_gsl_random_generator();
+		seed_gsl_random_generator(0);
 
-		for (int time = 0; time < env_1.num_of_times_in_each_day; time++) {
+		cout << "the intialized count :";
+		curr_mosq = head;
+		prev_mosq = head;
+		int day_cntr = 0;
+		//int Male_DD = 0, Male_DR = 0, Male_RR = 0;
 
-			
+		double divs;
+		read_variables();
+		cout << "\n the initial mosqs count is :" << env_1.mate_prob;
+		cout << "\n" << env_1.initial_mosqs;
+		cout << "\n" << env_1.max_larve_cap;
+		cout << "\n" << env_1.mate_prob;
+		cout << "\n" << env_1.treated_prob;
+		cout << "\n" << env_1.female_death_prob;
+		cout << "\n" << env_1.male_death_prob;
+		cout << "\n" << env_1.egg_death_prob;
+		cout << "\n" << env_1.larve_death_prob;
+		cout << "\n" << env_1.pupe_death_prob;
+		cout << "\n" << env_1.gender_prob;
+		cout << "\n" << env_1.find_male_prob;
+		cout << "\n" << env_1.egg_next_stg_prob;
+		cout << "\n" << env_1.larve_next_stage_prob;
+		cout << "\n" << env_1.pupe_next_stage_prob;
 
-			cout << "\n loop counter " << day << " ------- " << time;
-			cout << "\n male vector size : " << male_vector.size();
-			int i = 0;
-			temp = head;
-			curr_mosq = head;
-			prev_mosq = head;
-			cout << "\n-----------killing started------------\n";
-			cout << "\n male vector size : " << male_vector.size();
-				will_mosq_die();//checking each mosquito survives each time loop and killing them based on probability
 
-			if (global_zero_mosq == 1) {// try catch throw : when there are zero mosq, this will exit the loop and send data to files.
-				cout << "\n exiting the inner ---for--- loop to write data to files\n";
-				break;
+		for (int i = 0; i < env_1.initial_mosqs; i++) {
+			//k = gsl_ran_bernoulli(_RNG_P, 0.50);  // stoping this as we are bringing all the mosquitos to a new environment
+			if (env_1.k == 1) {
+				env_1.gender_oc = gsl_ran_bernoulli(_RNG_P, env_1.gender_prob);
+				env_1.mate_oc = gsl_ran_bernoulli(_RNG_P, env_1.initial_mate_prob);
+				env_1.treated_oc = gsl_ran_bernoulli(_RNG_P, env_1.treated_prob);
+				if (env_1.gender_oc == 1) {
+					add_mosq(3, 0, 0, env_1.mate_oc, 0);
+				}
+				else {
+					add_mosq(3, 1, 0, env_1.mate_oc, 0);
+				}
 			}
-
-			prnt_all_vect();
-			//adding l* implementation for larve to kill excess
-
-
-
-			temp = head;
-			i = 0;
-			temp = head;
-			curr_mosq = head;
-			prev_mosq = head;
-			//prnt_all_vect();
-			mosq_nxt_stg();// checkimg if mosquito forwards to next stage like from egg to larve
-			std::sort(male_vector.begin(), male_vector.end(), comparePtrToNode);
-			std::sort(female_vector.begin(), female_vector.end(), comparePtrToNode);
-			std::sort(egg_vector.begin(), egg_vector.end(), comparePtrToNode);
-			std::sort(larve_vector.begin(), larve_vector.end(), comparePtrToNode);
-			std::sort(pupe_vector.begin(), pupe_vector.end(), comparePtrToNode);
-			prnt_all_vect();
-
-			// for all mosquitos
-			curr_mosq = head;
-
-			if (male_vector.size() > 0 && female_vector.size() > 0) {
-				female_mating();// checking if female mates with male and lays eggs
-			}
-			else {
-				cout << "\n\n\n\n\n\n no adult mosqitoes left for mating\n";
-			}
-
-			prnt_all_vect();
-
-			if (egg_vector.size() > env_1.max_egg_cap) {
-				egg_id_coll_and_shuff();
-				kill_excess_eggs();
-			}
-
-
-			cout << "\n curr larve count: " << larve_vector.size();
-			if (larve_vector.size() > env_1.max_larve_cap) {
-				larve_id_coll_and_shuff();
-				kill_excess_larve();
-			}
-
-			cout << "\n the mosquitos after deletion --------------------------- far are \n";
-			/*		cout << "\n Mosquito ID: ";
-					cout << " Mosquito stage: ";
-					cout << " treated status: ";
-					cout << " mated status: ";*/
-			show_mosqs();
-
-			//cout << "\n\n the number of male mosquitos are :" << male_vector.size() << endl;
-		/*	cout << "\n" << "the male mosquitos left are \n";
-			for (auto it = male_vector.begin(); it != male_vector.end(); it++) {
-				cout << *it << "\t" << (*it)->mosq_id << "\n";
-			}*/
-
-			cout << "\n the number of male mosquitos are: " << male_vector.size();
-			cout << "\n the number of female mosquitos are: " << female_vector.size();
-			cout << "\n the number of egg mosquitos are: " << egg_vector.size();
-			cout << "\n the number of lavre mosquitos are: " << larve_vector.size();
-			cout << "\n the number of pupe mosquitos are: " << pupe_vector.size();
-
-
-			/*if (female_vector.size() < 10) {
-				cout << "\n female vector size is low";
-				cout << female_vector.size();
-				cin >> pause_for_interupt;
-			}*/
-		}
-		if (global_zero_mosq == 1) {// try catch throw : when there are zero mosq, this will exit the loop and send data to files.
-			cout << "\n exiting the outer ---for--- loop to write data to files\n";
-			break;
 		}
 
-		if (day == env_1.equlibrium_days) {
-			env_1.adult_males_on_equibrilium = male_vector.size();
-			males_add_after_equi = (int)((double)env_1.adult_males_on_equibrilium * (double)env_1.percent_males_DD_add * (double)0.01);
-			
-		}
+		cout << "\n Male vector size" << male_vector.size();
 
-		//to add mosquitoes in particualr interval
-
-		if (day % env_1.intrvl_of_days_to_add_treated_mosq == 0 && day > env_1.equlibrium_days) {
-			cout << "\n male vector size : "<<male_vector.size();
-			cout << "\n ------------adding treated mosqs";
-			//add_treated_male(env_1.num_of_mosq_to_add);
-
-			for (int i = 0; i < males_add_after_equi; i++) {
-				add_mosq(3, 0, 0, 0, 2);
-			}
-
-		}
-		cout << "\n male vector size : " << male_vector.size();
-
-		male_count.push_back(male_vector.size());
-		female_count.push_back(female_vector.size());
-		egg_count.push_back(egg_vector.size());
-		larve_count.push_back(larve_vector.size());
-		pupe_count.push_back(pupe_vector.size());
-		time_count.push_back(day_cntr++);
+		//add_mosq(3, 0, 0, env_1.mate_oc,/* 1);
+		//add_mosq(3, 0, 0, env_1.mate_oc, 2);*/
+		//add_mosq(3, 0, 0, env_1.mate_oc, 0);
 
 
 
-		female_ratio.push_back((double)female_vector.size() / (double)larve_vector.size());
-		male_ratio.push_back((double)male_vector.size() / (double)larve_vector.size());
-		larve_ratio.push_back((double)larve_vector.size() / (double)larve_vector.size());
-		pupe_ratio.push_back((double)pupe_vector.size() / (double)larve_vector.size());
-
+		//to calculate seperate count for DD, DR,RR
+		cout << "\n Male vector size" << male_vector.size();
 		Male_DD.clear();
 		Male_DR.clear();
 		Male_RR.clear();
 		for (int si = 0; si < male_vector.size(); si++) {
+			cout << "\n" << male_vector[si]->mosq_id << "  ----  " << male_vector[si]->gene_stat;
 			if (male_vector[si]->gene_stat == 2) {
+				//Male_DD++;
 				Male_DD.push_back(male_vector[si]->mosq_id);
 			}
 			else if (male_vector[si]->gene_stat == 1) {
@@ -1417,177 +1263,374 @@ int main() {
 		Male_count_DR.push_back(Male_DR.size());
 		Male_count_RR.push_back(Male_RR.size());
 
+		//Male_DD.clear();
+		//Male_DR.clear();
+		//Male_RR.clear();
+		//for (int si = 0; si < male_vector.size(); si++) {
+		//	cout <<"\n" << male_vector[si]->mosq_id <<"  ----  "<< male_vector[si]->gene_stat;
+		//	if (male_vector[si]->gene_stat == 1) {
+		//		//Male_DD++;
+		//		
+		//		Male_DD.push_back(male_vector[si]->mosq_id);
+		//	}
+		//	else if (male_vector[si]->gene_stat == 2) {
+		//		Male_DD.push_back(male_vector[si]->mosq_id);
+		//	}
+		//	else if (male_vector[si]->gene_stat == 0) {
+		//		Male_DD.push_back(male_vector[si]->mosq_id);
+		//	}
+
+		//}
+
+		int males_add_after_equi;
+
 		cout << "\n count is";
 		cout << Male_DD.size() << "\n" << Male_DR.size() << "\n" << Male_RR.size();
 
 
-		//mate counting for each day for DD,DR,RR with female
-		DD_mate_count_vect.push_back(env_1.DD_mate_cntr);
-		env_1.DD_mate_cntr = 0;
-		DR_mate_count_vect.push_back(env_1.DR_mate_cntr);
-		env_1.DR_mate_cntr = 0;
-		RR_mate_count_vect.push_back(env_1.RR_mate_cntr);
-		env_1.RR_mate_cntr = 0;
+		/*show_mosqs();
+		prnt_all_vect();*/
+
+		/*cout << "\n male mosquitoes are:";
+		for (auto it = male_vector.begin(); it != male_vector.end(); it++) {
+			cout << (*it)->mosq_id << "\n";
+		}*/
+		cout << "\n===============" << mosq_count;
+		//loooping over time
+		for (int day = 0; day < env_1.num_of_days_to_expmnt; day++) {
+
+			for (int time = 0; time < env_1.num_of_times_in_each_day; time++) {
 
 
-	}
 
-	// add function to seperate the read and write to files
-	//Male_DD.clear();
-	//Male_DR.clear();
-	//Male_RR.clear();
-	//for (int si = 0; si < male_vector.size(); si++) {
-	//	if (male_vector[si]->gene_stat == 2) {
-	//		//Male_DD++;
-	//		Male_DD.push_back(male_vector[si]->mosq_id);
-	//	}
-	//	else if (male_vector[si]->gene_stat == 1) {
-	//		Male_DD.push_back(male_vector[si]->mosq_id);
-	//	}
-	//	else if (male_vector[si]->gene_stat == 0) {
-	//		Male_DD.push_back(male_vector[si]->mosq_id);
-	//	}
+				cout << "\n loop counter " << day << " ------- " << time;
+				cout << "\n male vector size : " << male_vector.size();
+				int i = 0;
+				temp = head;
+				curr_mosq = head;
+				prev_mosq = head;
+				cout << "\n-----------killing started------------\n";
+				cout << "\n male vector size : " << male_vector.size();
+				will_mosq_die();//checking each mosquito survives each time loop and killing them based on probability
 
+				if (global_zero_mosq == 1) {// try catch throw : when there are zero mosq, this will exit the loop and send data to files.
+					cout << "\n exiting the inner ---for--- loop to write data to files\n";
+					break;
+				}
+
+				prnt_all_vect();
+				//adding l* implementation for larve to kill excess
+
+
+
+				temp = head;
+				i = 0;
+				temp = head;
+				curr_mosq = head;
+				prev_mosq = head;
+				//prnt_all_vect();
+				mosq_nxt_stg();// checkimg if mosquito forwards to next stage like from egg to larve
+				std::sort(male_vector.begin(), male_vector.end(), comparePtrToNode);
+				std::sort(female_vector.begin(), female_vector.end(), comparePtrToNode);
+				std::sort(egg_vector.begin(), egg_vector.end(), comparePtrToNode);
+				std::sort(larve_vector.begin(), larve_vector.end(), comparePtrToNode);
+				std::sort(pupe_vector.begin(), pupe_vector.end(), comparePtrToNode);
+				prnt_all_vect();
+
+				// for all mosquitos
+				curr_mosq = head;
+
+				if (male_vector.size() > 0 && female_vector.size() > 0) {
+					female_mating();// checking if female mates with male and lays eggs
+				}
+				else {
+					cout << "\n\n\n\n\n\n no adult mosqitoes left for mating\n";
+				}
+
+				prnt_all_vect();
+
+				if (egg_vector.size() > env_1.max_egg_cap) {
+					egg_id_coll_and_shuff();
+					kill_excess_eggs();
+				}
+
+
+				cout << "\n curr larve count: " << larve_vector.size();
+				if (larve_vector.size() > env_1.max_larve_cap) {
+					larve_id_coll_and_shuff();
+					kill_excess_larve();
+				}
+
+				cout << "\n the mosquitos after deletion --------------------------- far are \n";
+				/*		cout << "\n Mosquito ID: ";
+						cout << " Mosquito stage: ";
+						cout << " treated status: ";
+						cout << " mated status: ";*/
+				show_mosqs();
+
+				//cout << "\n\n the number of male mosquitos are :" << male_vector.size() << endl;
+			/*	cout << "\n" << "the male mosquitos left are \n";
+				for (auto it = male_vector.begin(); it != male_vector.end(); it++) {
+					cout << *it << "\t" << (*it)->mosq_id << "\n";
+				}*/
+
+				//cout << "\n the number of male mosquitos are: " << male_vector.size();
+				//cout << "\n the number of female mosquitos are: " << female_vector.size();
+				//cout << "\n the number of egg mosquitos are: " << egg_vector.size();
+				//cout << "\n the number of lavre mosquitos are: " << larve_vector.size();
+				//cout << "\n the number of pupe mosquitos are: " << pupe_vector.size();
+
+
+				/*if (female_vector.size() < 10) {
+					cout << "\n female vector size is low";
+					cout << female_vector.size();
+					cin >> pause_for_interupt;
+				}*/
+
+				env_1.global_egg_count = egg_vector.size(); // to keep track of egg count after each time step.
+
+			}
+
+
+
+
+
+			if (global_zero_mosq == 1) {// try catch throw : when there are zero mosq, this will exit the loop and send data to files.
+				cout << "\n exiting the outer ---for--- loop to write data to files\n";
+				break;
+			}
+
+			if (day == env_1.equlibrium_days) {
+				env_1.adult_males_on_equibrilium = male_vector.size();
+				males_add_after_equi = (int)((double)env_1.adult_males_on_equibrilium * (double)env_1.percent_males_DD_add * (double)0.01);
+
+			}
+
+			//to add mosquitoes in particualr interval
+
+			if (day % env_1.intrvl_of_days_to_add_treated_mosq == 0 && day > env_1.equlibrium_days) {
+				cout << "\n male vector size : " << male_vector.size();
+				cout << "\n ------------adding treated mosqs";
+				//add_treated_male(env_1.num_of_mosq_to_add);
+
+				for (int i = 0; i < males_add_after_equi; i++) {
+					add_mosq(3, 0, 0, 0, 2);
+				}
+
+			}
+			cout << "\n male vector size : " << male_vector.size();
+
+			male_count.push_back(male_vector.size());
+			female_count.push_back(female_vector.size());
+			egg_count.push_back(egg_vector.size());
+			larve_count.push_back(larve_vector.size());
+			pupe_count.push_back(pupe_vector.size());
+			time_count.push_back(day_cntr++);
+
+
+
+			female_ratio.push_back((double)female_vector.size() / (double)larve_vector.size());
+			male_ratio.push_back((double)male_vector.size() / (double)larve_vector.size());
+			larve_ratio.push_back((double)larve_vector.size() / (double)larve_vector.size());
+			pupe_ratio.push_back((double)pupe_vector.size() / (double)larve_vector.size());
+
+			Male_DD.clear();
+			Male_DR.clear();
+			Male_RR.clear();
+			for (int si = 0; si < male_vector.size(); si++) {
+				if (male_vector[si]->gene_stat == 2) {
+					Male_DD.push_back(male_vector[si]->mosq_id);
+				}
+				else if (male_vector[si]->gene_stat == 1) {
+					Male_DR.push_back(male_vector[si]->mosq_id);
+				}
+				else if (male_vector[si]->gene_stat == 0) {
+					Male_RR.push_back(male_vector[si]->mosq_id);
+				}
+
+			}
+
+			Male_count_DD.push_back(Male_DD.size());
+			Male_count_DR.push_back(Male_DR.size());
+			Male_count_RR.push_back(Male_RR.size());
+
+			cout << "\n count is";
+			cout << Male_DD.size() << "\n" << Male_DR.size() << "\n" << Male_RR.size();
+
+
+			//mate counting for each day for DD,DR,RR with female
+			DD_mate_count_vect.push_back(env_1.DD_mate_cntr);
+			env_1.DD_mate_cntr = 0;
+			DR_mate_count_vect.push_back(env_1.DR_mate_cntr);
+			env_1.DR_mate_cntr = 0;
+			RR_mate_count_vect.push_back(env_1.RR_mate_cntr);
+			env_1.RR_mate_cntr = 0;
+
+
+		}
+
+		// add function to seperate the read and write to files
+		//Male_DD.clear();
+		//Male_DR.clear();
+		//Male_RR.clear();
+		//for (int si = 0; si < male_vector.size(); si++) {
+		//	if (male_vector[si]->gene_stat == 2) {
+		//		//Male_DD++;
+		//		Male_DD.push_back(male_vector[si]->mosq_id);
+		//	}
+		//	else if (male_vector[si]->gene_stat == 1) {
+		//		Male_DD.push_back(male_vector[si]->mosq_id);
+		//	}
+		//	else if (male_vector[si]->gene_stat == 0) {
+		//		Male_DD.push_back(male_vector[si]->mosq_id);
+		//	}
+
+		//}
+
+		//int m_DD = Male_DD;
+		//int m_DR=
+		cout << "\n files in write";
+		std::vector<std::pair<std::string, std::vector<int>>> vals3 = { {"time",time_count }, {"Egg", egg_count}, {"Larve", larve_count},{"Pupe",pupe_count},{"Adult_male",male_count},{"Adult_female",female_count},{"MALE_DD",Male_count_DD},{"MALE_DR",Male_count_DR},{"MALE_RR",Male_count_RR},{"DD_mate_count",DD_mate_count_vect},{"DR_mate_count",DR_mate_count_vect},{"RR_mate_count",RR_mate_count_vect} };
+		std::vector<std::pair<std::string, std::vector<double>>> ratios = { { "Larve_ratio",larve_ratio }, { "Pupe_ratio",pupe_ratio}, { "Male_ratio",male_ratio}, { "Female_ratio",female_ratio} };
+
+		cout << "\n number of adults on equibrilium day: " << env_1.adult_males_on_equibrilium << "\n added with percent " << males_add_after_equi;
+		cout << "\n files in write";
+		temp_file_names = file_names_list + "_31" + ".csv";
+		write_csv(temp_file_names, vals3);
+		file_counter++;
+
+		cout << "\n files in write";
+		//write_double_CSV(larve_ratio, "data.csv");
+		//write_csv("ratios.csv", ratios);
+		write_d_csv("data1.csv", ratios);
+		cout << "\n files in writing completed";
+		male_count.clear();
+		male_count.erase(male_count.begin(), male_count.end());
+		male_count.shrink_to_fit();
+
+		female_count.clear();
+		female_count.erase(female_count.begin(), female_count.end());
+		female_count.shrink_to_fit();
+
+		egg_count.clear();
+		egg_count.erase(egg_count.begin(), egg_count.end());
+		egg_count.shrink_to_fit();
+
+		larve_count.clear();
+		larve_count.erase(larve_count.begin(), larve_count.end());
+		larve_count.shrink_to_fit();
+
+		pupe_count.clear();
+		pupe_count.erase(pupe_count.begin(), pupe_count.end());
+		pupe_count.shrink_to_fit();
+
+		time_count.clear();
+		time_count.erase(time_count.begin(), time_count.end());
+		time_count.shrink_to_fit();
+
+
+		male_vector.clear();
+		male_vector.erase(male_vector.begin(), male_vector.end());
+		male_vector.shrink_to_fit();
+
+		larve_vector.clear();
+		larve_vector.erase(larve_vector.begin(), larve_vector.end());
+		larve_vector.shrink_to_fit();
+
+		egg_vector.clear();
+		egg_vector.erase(egg_vector.begin(), egg_vector.end());
+		egg_vector.shrink_to_fit();
+
+		pupe_vector.clear();
+		pupe_vector.erase(pupe_vector.begin(), pupe_vector.end());
+		pupe_vector.shrink_to_fit();
+
+		female_vector.clear();
+		female_vector.erase(female_vector.begin(), female_vector.end());
+		female_vector.shrink_to_fit();
+
+		female_ratio.clear();
+		female_ratio.erase(female_ratio.begin(), female_ratio.end());
+		female_ratio.shrink_to_fit();
+
+		male_ratio.clear();
+		male_ratio.erase(male_ratio.begin(), male_ratio.end());
+		male_ratio.shrink_to_fit();
+
+		larve_ratio.clear();
+		larve_ratio.erase(larve_ratio.begin(), larve_ratio.end());
+		larve_ratio.shrink_to_fit();
+
+		pupe_ratio.clear();
+		pupe_ratio.erase(pupe_ratio.begin(), pupe_ratio.end());
+		pupe_ratio.shrink_to_fit();
+
+
+		Male_DD.clear();
+		Male_DD.erase(Male_DD.begin(), Male_DD.end());
+		Male_DD.shrink_to_fit();
+
+		Male_DR.clear();
+		Male_DR.erase(Male_DR.begin(), Male_DR.end());
+		Male_DR.shrink_to_fit();
+
+		Male_RR.clear();
+		Male_RR.erase(Male_RR.begin(), Male_RR.end());
+		Male_RR.shrink_to_fit();
+
+		Male_count_DD.clear();
+		Male_count_DD.erase(Male_count_DD.begin(), Male_count_DD.end());
+		Male_count_DD.shrink_to_fit();
+
+		Male_count_DR.clear();
+		Male_count_DR.erase(Male_count_DR.begin(), Male_count_DR.end());
+		Male_count_DR.shrink_to_fit();
+
+		Male_count_RR.clear();
+		Male_count_RR.erase(Male_count_RR.begin(), Male_count_RR.end());
+		Male_count_RR.shrink_to_fit();
+
+		larve_ids.clear();
+		larve_ids.erase(larve_ids.begin(), larve_ids.end());
+		larve_ids.shrink_to_fit();
+
+
+		egg_ids.clear();
+		egg_ids.erase(egg_ids.begin(), egg_ids.end());
+		egg_ids.shrink_to_fit();
+
+		eggs_female_vector.clear();
+		eggs_female_vector.erase(eggs_female_vector.begin(), eggs_female_vector.end());
+		eggs_female_vector.shrink_to_fit();
+
+		eggs_male_RR_vector.clear();
+		eggs_male_RR_vector.erase(eggs_male_RR_vector.begin(), eggs_male_RR_vector.end());
+		eggs_male_RR_vector.shrink_to_fit();
+
+		eggs_male_DR_vector.clear();
+		eggs_male_DR_vector.erase(eggs_male_DR_vector.begin(), eggs_male_DR_vector.end());
+		eggs_male_DR_vector.shrink_to_fit();
+
+		DD_mate_count_vect.clear();
+		DD_mate_count_vect.erase(DD_mate_count_vect.begin(), DD_mate_count_vect.end());
+		DD_mate_count_vect.shrink_to_fit();
+
+		DR_mate_count_vect.clear();
+		DR_mate_count_vect.erase(DR_mate_count_vect.begin(), DR_mate_count_vect.end());
+		DR_mate_count_vect.shrink_to_fit();
+
+		RR_mate_count_vect.clear();
+		RR_mate_count_vect.erase(RR_mate_count_vect.begin(), RR_mate_count_vect.end());
+		RR_mate_count_vect.shrink_to_fit();
+
+
+
+		curr_mosq = head;
+
+		cout << "\n " << head->mosq_id;
+		cout << "\n " << curr_mosq->mosq_id;
+		cout << "\n " << last_mosq->mosq_id;
 	//}
 
-	//int m_DD = Male_DD;
-	//int m_DR=
-	cout << "\n files in write";
-	std::vector<std::pair<std::string, std::vector<int>>> vals3 = { {"time",time_count }, {"Egg", egg_count}, {"Larve", larve_count},{"Pupe",pupe_count},{"Adult_male",male_count},{"Adult_female",female_count},{"MALE_DD",Male_count_DD},{"MALE_DR",Male_count_DR},{"MALE_RR",Male_count_RR},{"DD_mate_count",DD_mate_count_vect},{"DR_mate_count",DR_mate_count_vect},{"RR_mate_count",RR_mate_count_vect}};
-	std::vector<std::pair<std::string, std::vector<double>>> ratios = { { "Larve_ratio",larve_ratio }, { "Pupe_ratio",pupe_ratio}, { "Male_ratio",male_ratio}, { "Female_ratio",female_ratio} };
-
-	cout << "\n number of adults on equibrilium day: " << env_1.adult_males_on_equibrilium<<"\n added with percent "<< males_add_after_equi;
-	cout << "\n files in write";
-	write_csv("three_cols.csv", vals3);
-	cout << "\n files in write";
-	//write_double_CSV(larve_ratio, "data.csv");
-	//write_csv("ratios.csv", ratios);
-	write_d_csv("data1.csv", ratios);
-	cout << "\n files in writing completed";
-	male_count.clear();
-	male_count.erase(male_count.begin(), male_count.end());
-	male_count.shrink_to_fit();
-
-	female_count.clear();
-	female_count.erase(female_count.begin(), female_count.end());
-	female_count.shrink_to_fit();
-
-	egg_count.clear();
-	egg_count.erase(egg_count.begin(), egg_count.end());
-	egg_count.shrink_to_fit();
-
-	larve_count.clear();
-	larve_count.erase(larve_count.begin(), larve_count.end());
-	larve_count.shrink_to_fit();
-
-	pupe_count.clear();
-	pupe_count.erase(pupe_count.begin(), pupe_count.end());
-	pupe_count.shrink_to_fit();
-
-	time_count.clear();
-	time_count.erase(time_count.begin(), time_count.end());
-	time_count.shrink_to_fit();
-
-
-	male_vector.clear();
-	male_vector.erase(male_vector.begin(), male_vector.end());
-	male_vector.shrink_to_fit();
-
-	larve_vector.clear();
-	larve_vector.erase(larve_vector.begin(), larve_vector.end());
-	larve_vector.shrink_to_fit();
-
-	egg_vector.clear();
-	egg_vector.erase(egg_vector.begin(), egg_vector.end());
-	egg_vector.shrink_to_fit();
-
-	pupe_vector.clear();
-	pupe_vector.erase(pupe_vector.begin(), pupe_vector.end());
-	pupe_vector.shrink_to_fit();
-
-	female_vector.clear();
-	female_vector.erase(female_vector.begin(), female_vector.end());
-	female_vector.shrink_to_fit();
-
-	female_ratio.clear();
-	female_ratio.erase(female_ratio.begin(), female_ratio.end());
-	female_ratio.shrink_to_fit();
-
-	male_ratio.clear();
-	male_ratio.erase(male_ratio.begin(), male_ratio.end());
-	male_ratio.shrink_to_fit();
-
-	larve_ratio.clear();
-	larve_ratio.erase(larve_ratio.begin(), larve_ratio.end());
-	larve_ratio.shrink_to_fit();
-
-	pupe_ratio.clear();
-	pupe_ratio.erase(pupe_ratio.begin(), pupe_ratio.end());
-	pupe_ratio.shrink_to_fit();
-
-
-	Male_DD.clear();
-	Male_DD.erase(Male_DD.begin(), Male_DD.end());
-	Male_DD.shrink_to_fit();
-
-	Male_DR.clear();
-	Male_DR.erase(Male_DR.begin(), Male_DR.end());
-	Male_DR.shrink_to_fit();
-
-	Male_RR.clear();
-	Male_RR.erase(Male_RR.begin(), Male_RR.end());
-	Male_RR.shrink_to_fit();
-
-	Male_count_DD.clear();
-	Male_count_DD.erase(Male_count_DD.begin(), Male_count_DD.end());
-	Male_count_DD.shrink_to_fit();
-
-	Male_count_DR.clear();
-	Male_count_DR.erase(Male_count_DR.begin(), Male_count_DR.end());
-	Male_count_DR.shrink_to_fit();
-
-	Male_count_RR.clear();
-	Male_count_RR.erase(Male_count_RR.begin(), Male_count_RR.end());
-	Male_count_RR.shrink_to_fit();
-
-	larve_ids.clear();
-	larve_ids.erase(larve_ids.begin(), larve_ids.end());
-	larve_ids.shrink_to_fit();
-
-
-	egg_ids.clear();
-	egg_ids.erase(egg_ids.begin(), egg_ids.end());
-	egg_ids.shrink_to_fit();
-
-	eggs_female_vector.clear();
-	eggs_female_vector.erase(eggs_female_vector.begin(), eggs_female_vector.end());
-	eggs_female_vector.shrink_to_fit();
-
-	eggs_male_RR_vector.clear();
-	eggs_male_RR_vector.erase(eggs_male_RR_vector.begin(), eggs_male_RR_vector.end());
-	eggs_male_RR_vector.shrink_to_fit();
-
-	eggs_male_DR_vector.clear();
-	eggs_male_DR_vector.erase(eggs_male_DR_vector.begin(), eggs_male_DR_vector.end());
-	eggs_male_DR_vector.shrink_to_fit();
-
-	DD_mate_count_vect.clear();
-	DD_mate_count_vect.erase(DD_mate_count_vect.begin(), DD_mate_count_vect.end());
-	DD_mate_count_vect.shrink_to_fit();
-
-	DR_mate_count_vect.clear();
-	DR_mate_count_vect.erase(DR_mate_count_vect.begin(), DR_mate_count_vect.end());
-	DR_mate_count_vect.shrink_to_fit();
-
-	RR_mate_count_vect.clear();
-	RR_mate_count_vect.erase(RR_mate_count_vect.begin(), RR_mate_count_vect.end());
-	RR_mate_count_vect.shrink_to_fit();
-
-
-
-	curr_mosq = head;
-
-	cout << "\n " << head->mosq_id;
-	cout << "\n " << curr_mosq->mosq_id;
-	cout << "\n " << last_mosq->mosq_id;
 }
+
